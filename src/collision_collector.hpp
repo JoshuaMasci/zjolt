@@ -4,7 +4,7 @@
 #include <Jolt/Physics/Body/BodyInterface.h>
 #include <Jolt/Physics/Collision/Shape/Shape.h>
 
-#include "saturn_jolt.h"
+#include "zjolt.h"
 #include "body.hpp"
 
 class ShapeCastCallbackCollisionCollector : public JPH::CollideShapeCollector {
@@ -35,4 +35,3 @@ private:
     void *callback_data;
     JPH::BodyInterface &body_interface;
 };
-

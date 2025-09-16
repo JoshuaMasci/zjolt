@@ -7,7 +7,7 @@ const c = @cImport({
         @cDefine("JPH_DOUBLE_PRECISION", 1);
     }
 
-    @cInclude("saturn_jolt.h");
+    @cInclude("zjolt.h");
 });
 
 pub fn init(allocator: std.mem.Allocator) void {
@@ -81,19 +81,19 @@ pub const Shape = struct {
 
     pub fn initConvexHull(positions: [][3]f32, density: f32, user_data: UserData) Self {
         return .{
-            .handle = c.shapeCreateConvexHull(@alignCast(@ptrCast(positions.ptr)), positions.len, density, user_data),
+            .handle = c.shapeCreateConvexHull(@ptrCast(@alignCast(positions.ptr)), positions.len, density, user_data),
         };
     }
 
     pub fn initMeshStatic(positions: [][3]f32, indices: []u32, user_data: UserData) Self {
         return .{
-            .handle = c.shapeCreateMesh(@alignCast(@ptrCast(positions.ptr)), positions.len, @alignCast(@ptrCast(indices.ptr)), indices.len, null, user_data),
+            .handle = c.shapeCreateMesh(@ptrCast(@alignCast(positions.ptr)), positions.len, @ptrCast(@alignCast(indices.ptr)), indices.len, null, user_data),
         };
     }
 
     pub fn initMeshWithMass(positions: [][3]f32, indices: []u32, mass_properites: MassProperties, user_data: UserData) Self {
         return .{
-            .handle = c.shapeCreateMesh(@alignCast(@ptrCast(positions.ptr)), positions.len, @alignCast(@ptrCast(indices.ptr)), indices.len, &mass_properites, user_data),
+            .handle = c.shapeCreateMesh(@ptrCast(@alignCast(positions.ptr)), positions.len, @ptrCast(@alignCast(indices.ptr)), indices.len, &mass_properites, user_data),
         };
     }
 
@@ -101,7 +101,7 @@ pub const Shape = struct {
         //TODO: since Shape is currently a wrapper type, we can cast it to a c.SubShapeSettings without issue, may become a problem on diffrent platforms
         comptime std.debug.assert(@sizeOf(SubShapeSettings) == @sizeOf(c.SubShapeSettings));
         return .{
-            .handle = c.shapeCreateCompound(@alignCast(@ptrCast(sub_shapes.ptr)), sub_shapes.len, user_data),
+            .handle = c.shapeCreateCompound(@ptrCast(@alignCast(sub_shapes.ptr)), sub_shapes.len, user_data),
         };
     }
 

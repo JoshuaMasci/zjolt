@@ -1,6 +1,6 @@
 #Fake CMAKE file so editors can find sources + includes
 cmake_minimum_required(VERSION 3.30)
-project(saturn_physics)
+project(zjolt)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -11,7 +11,7 @@ include_directories(src)
 
 add_definitions(-DJPH_DEBUG_RENDERER)
 
-add_library(saturn_physics
+add_library(zjolt
         JoltPhysics/Jolt/Core/TickCounter.cpp
         JoltPhysics/Jolt/Core/Factory.cpp
         JoltPhysics/Jolt/Core/Memory.cpp
@@ -146,7 +146,7 @@ add_library(saturn_physics
         JoltPhysics/Jolt/TriangleSplitter/TriangleSplitter.cpp
         JoltPhysics/Jolt/TriangleSplitter/TriangleSplitterBinning.cpp
 
-        src/saturn_jolt.cpp
+        src/zjolt.cpp
         src/world.cpp
         src/body.cpp
         src/object_pool.hpp
