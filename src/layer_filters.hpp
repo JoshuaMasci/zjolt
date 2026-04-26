@@ -54,7 +54,7 @@ private:
 };
 
 // BroadPhaseLayerInterface implementation
-// This defines a mapping between object and broadphase layers.
+// This defines a mapping between object and BroadPhase layers.
 class BroadPhaseLayerInterfaceImpl final
     : public JPH::BroadPhaseLayerInterface {
 public:

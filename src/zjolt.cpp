@@ -18,6 +18,7 @@
 
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 
+#include "Jolt/Core/JobSystemSingleThreaded.h"
 #include "Jolt/Physics/Collision/Shape/BoxShape.h"
 #include "Jolt/Physics/Collision/Shape/CapsuleShape.h"
 #include "Jolt/Physics/Collision/Shape/ConvexHullShape.h"
@@ -58,7 +59,8 @@ struct World {
 JPH::TempAllocatorImplWithMallocFallback *temp_allocator;
 
 // TODO: Implement custom pool that uses zig's thread pool
-JPH::JobSystemThreadPool *job_system;
+JPH::JobSystemThreadPool *mt_job_system;
+JPH::JobSystemSingleThreaded *st_job_system;
 
 void init(const AllocationFunctions *functions, uint32_t temp_allocation_size,
           uint16_t threads) {
@@ -78,11 +80,19 @@ void init(const AllocationFunctions *functions, uint32_t temp_allocation_size,
 
   temp_allocator =
       new JPH::TempAllocatorImplWithMallocFallback(temp_allocation_size);
-  job_system = new JPH::JobSystemThreadPool(1024, threads, threads);
+
+  if (threads == 0) {
+    mt_job_system = new JPH::JobSystemThreadPool(1024, threads, threads);
+    st_job_system = nullptr;
+  } else {
+    mt_job_system = nullptr;
+    st_job_system = new JPH::JobSystemSingleThreaded();
+  }
 }
 
 void deinit() {
-  delete job_system;
+  delete mt_job_system;
+  delete st_job_system;
   delete temp_allocator;
 
   JPH::UnregisterTypes();
@@ -275,6 +285,11 @@ void worldDestroy(World *world) {
 
 WorldUpdateError worldUpdate(World *world, float delta_time,
                              int collision_steps) {
+  JPH::JobSystem *job_system = mt_job_system;
+  if (job_system != nullptr) {
+    job_system = st_job_system;
+  }
+
   auto error = world->physics_system->Update(delta_time, collision_steps,
                                              temp_allocator, job_system);
   return (WorldUpdateError)error;
@@ -586,10 +601,7 @@ void convertRayHit(RayCastHit *hit_result, JPH::RRayCast &ray,
 
       hit_result->body_id = hit.mBodyID.GetIndexAndSequenceNumber();
       hit_result->body_user_data = body.GetUserData();
-
-      // auto shape_info = body_ptr->getSubShapeInfo(hit.mSubShapeID2);
-      // hit_result->shape_index = shape_info.index;
-      // hit_result->shape_user_data = shape_info.user_data;
+      hit_result->sub_shape_id = hit.mSubShapeID2.GetValue();
 
       auto ray_distance = ray.mDirection * hit.mFraction;
       auto ws_position = ray.mOrigin + ray_distance;

@@ -187,6 +187,7 @@ pub const World = struct {
         num_body_mutexes: u32 = 0,
         max_body_pairs: u32 = 1024,
         max_contact_constraints: u32 = 1024,
+        gravity: Vec3 = .{ 0.0, -9.8, 0.0 },
     };
 
     ptr: ?*c.World,
@@ -198,6 +199,7 @@ pub const World = struct {
                 .num_body_mutexes = settings.num_body_mutexes,
                 .max_body_pairs = settings.max_body_pairs,
                 .max_contact_constraints = settings.max_contact_constraints,
+                .gravity = settings.gravity,
             }),
         };
     }
@@ -398,12 +400,12 @@ pub const World = struct {
     }
 
     pub fn setBodyShape(self: *Self, body_id: BodyID, shape: Shape, update_mass_properties: bool, activation: Activation) void {
-        c.worldSetBodyShape(self.ptr, @intFromEnum(body_id), @intFromEnum(shape.ptr), update_mass_properties, @intFromEnum(activation));
+        c.worldSetBodyShape(self.ptr, @intFromEnum(body_id), shape.ptr, update_mass_properties, @intFromEnum(activation));
     }
 
     pub fn castRayClosest(self: Self, object_layer_pattern: ObjectLayer, origin: RVec3, direction: Vec3) ?RayCastHit {
         var hit: c.RayCastHit = .{};
-        return if (c.worldCastRayAll(self.ptr, object_layer_pattern, @ptrCast(&origin[0]), @ptrCast(&direction[0]), &hit))
+        return if (c.worldCastRayCloset(self.ptr, object_layer_pattern, @ptrCast(&origin[0]), @ptrCast(&direction[0]), &hit))
             hit
         else
             null;

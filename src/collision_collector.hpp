@@ -22,6 +22,7 @@ public:
 
     hit.body_id = inResult.mBodyID2.GetIndexAndSequenceNumber();
     hit.body_user_data = this->body_interface.GetUserData(inResult.mBodyID2);
+    hit.sub_shape_id = inResult.mSubShapeID2.GetValue();
 
     this->callback(this->callback_data, hit);
   }

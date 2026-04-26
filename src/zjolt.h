@@ -149,19 +149,17 @@ typedef struct SubShapeSettings {
 
 typedef struct RayCastHit {
   BodyID body_id;
-  // SubShape *sub_shape;
+  SubShapeID sub_shape_id;
   float distance;
   RVec3 ws_position;
   Vec3 ws_normal;
   UserData body_user_data;
-  // UserData shape_user_data;
 } RayCastHit;
 
 typedef struct ShapeCastHit {
   BodyID body_id;
-  // SubShape *sub_shape;
+  SubShapeID sub_shape_id;
   UserData body_user_data;
-  // UserData shape_user_data;
 } ShapeCastHit;
 
 typedef void (*RayCastCallback)(void *user_data, RayCastHit hit);
