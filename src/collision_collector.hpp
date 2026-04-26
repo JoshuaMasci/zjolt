@@ -5,33 +5,29 @@
 #include <Jolt/Physics/Collision/Shape/Shape.h>
 
 #include "zjolt.h"
-#include "body.hpp"
 
 class ShapeCastCallbackCollisionCollector : public JPH::CollideShapeCollector {
 public:
-    ShapeCastCallbackCollisionCollector(ShapeCastCallback callback, void *callback_data,
-                                        JPH::BodyInterface &body_interface) : body_interface(body_interface) {
-        this->callback = callback;
-        this->callback_data = callback_data;
-    }
+  ShapeCastCallbackCollisionCollector(ShapeCastCallback callback,
+                                      void *callback_data,
+                                      JPH::BodyInterface &body_interface)
+      : body_interface(body_interface) {
+    this->callback = callback;
+    this->callback_data = callback_data;
+  }
 
-    // See: CollectorType::AddHit
-    void AddHit(const ResultType &inResult) override {
-        ShapeCastHit hit;
+  // See: CollectorType::AddHit
+  void AddHit(const ResultType &inResult) override {
+    ShapeCastHit hit;
 
-		Body *body_ptr = reinterpret_cast<Body *>(this->body_interface.GetUserData(inResult.mBodyID2));
-		hit.body_ptr = body_ptr;
-		hit.body_user_data = body_ptr->getUserData();
+    hit.body_id = inResult.mBodyID2.GetIndexAndSequenceNumber();
+    hit.body_user_data = this->body_interface.GetUserData(inResult.mBodyID2);
 
-		auto shape_info = body_ptr->getSubShapeInfo(inResult.mSubShapeID2);
-		hit.shape_index = shape_info.index;
-		hit.shape_user_data = shape_info.user_data;
-
-        this->callback(this->callback_data, hit);
-    }
+    this->callback(this->callback_data, hit);
+  }
 
 private:
-    ShapeCastCallback callback;
-    void *callback_data;
-    JPH::BodyInterface &body_interface;
+  ShapeCastCallback callback;
+  void *callback_data;
+  JPH::BodyInterface &body_interface;
 };

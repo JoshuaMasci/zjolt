@@ -9,7 +9,6 @@ const Options = struct {
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    _ = target; // autofix
     const optimize = b.standardOptimizeOption(.{});
 
     const options: Options = .{
@@ -42,7 +41,7 @@ pub fn build(b: *std.Build) void {
     const options_module = options_step.createModule();
 
     const zig_module = b.addModule("root", .{
-        .root_source_file = b.path("src/saturn_jolt.zig"),
+        .root_source_file = b.path("src/zjolt.zig"),
         .imports = &.{.{ .name = "options", .module = options_module }},
     });
     zig_module.addIncludePath(b.path("src/"));
@@ -68,10 +67,7 @@ pub fn build(b: *std.Build) void {
 
         zig_module.addCSourceFiles(.{
             .files = &.{
-                "src/saturn_jolt.cpp",
-                "src/world.cpp",
-                "src/body.cpp",
-                "src/mass_shape.cpp",
+                "src/zjolt.cpp",
             },
             .flags = c_flags,
         });
@@ -221,4 +217,19 @@ pub fn build(b: *std.Build) void {
             jolt_src_path ++ "TriangleSplitter/TriangleSplitterBinning.cpp",
         }, .flags = c_flags });
     }
+
+    const example_module = b.addModule("root", .{
+        .root_source_file = b.path("src/example.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    example_module.addImport("zjolt", zig_module);
+    const example_exe = b.addExecutable(.{
+        .name = "example",
+        .root_module = example_module,
+    });
+
+    const run_cmd = b.addRunArtifact(example_exe);
+    const run_step = b.step("example", "Run the example");
+    run_step.dependOn(&run_cmd.step);
 }

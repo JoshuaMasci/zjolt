@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+
 include_directories(JoltPhysics/)
 include_directories(src)
 
@@ -147,10 +148,4 @@ add_library(zjolt
         JoltPhysics/Jolt/TriangleSplitter/TriangleSplitterBinning.cpp
 
         src/zjolt.cpp
-        src/world.cpp
-        src/body.cpp
-        src/object_pool.hpp
-        src/mass_shape.cpp
-        src/mass_shape.hpp
-        src/callback_debug_renderer.cpp
 )
