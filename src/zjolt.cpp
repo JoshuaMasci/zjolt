@@ -81,7 +81,7 @@ void init(const AllocationFunctions *functions, uint32_t temp_allocation_size,
   temp_allocator =
       new JPH::TempAllocatorImplWithMallocFallback(temp_allocation_size);
 
-  if (threads == 0) {
+  if (threads == 0 || threads == 1) {
     mt_job_system = new JPH::JobSystemThreadPool(1024, threads, threads);
     st_job_system = nullptr;
   } else {

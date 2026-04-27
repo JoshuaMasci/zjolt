@@ -40,7 +40,7 @@ pub fn build(b: *std.Build) void {
     }
     const options_module = options_step.createModule();
 
-    const zig_module = b.addModule("root", .{
+    const zig_module = b.addModule("zjolt", .{
         .root_source_file = b.path("src/zjolt.zig"),
         .imports = &.{.{ .name = "options", .module = options_module }},
     });

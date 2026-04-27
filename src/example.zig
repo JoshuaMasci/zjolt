@@ -10,7 +10,8 @@ pub fn main() !void {
     const allocator = debug_allocator.allocator();
 
     const @"10MB": usize = 1024 * 1024 * 10;
-    zjolt.init(allocator, @"10MB", 4);
+    const THREADS: u16 = @intCast(try std.Thread.getCpuCount());
+    zjolt.init(allocator, @"10MB", THREADS);
     defer zjolt.deinit();
 
     const USER_DATA: zjolt.UserData = 13;
@@ -19,7 +20,13 @@ pub fn main() !void {
 
     std.debug.assert(USER_DATA == sphere.getUserData());
 
-    var world = zjolt.World.init(.{});
+    var world = zjolt.World.init(.{
+        .max_bodies = 1024,
+        .num_body_mutexes = THREADS,
+        .max_body_pairs = 1024,
+        .max_contact_constraints = 1024,
+        .gravity = zjolt.DefaultGravity,
+    });
     defer world.deinit();
 
     for (0..100) |_| {

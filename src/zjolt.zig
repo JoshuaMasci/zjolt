@@ -27,6 +27,8 @@ pub fn deinit() void {
     mem_allocator = null;
 }
 
+pub const DefaultGravity: Vec3 = .{ 0.0, -9.8, 0.0 };
+
 // Types
 pub const RVec3 = c.RVec3;
 pub const Vec3 = c.Vec3;
@@ -180,15 +182,15 @@ pub const WorldUpdateError = error{
 };
 
 pub const World = struct {
-    const Self = @This();
-
     pub const Settings = struct {
-        max_bodies: u32 = 1024,
-        num_body_mutexes: u32 = 0,
-        max_body_pairs: u32 = 1024,
-        max_contact_constraints: u32 = 1024,
-        gravity: Vec3 = .{ 0.0, -9.8, 0.0 },
+        max_bodies: u32,
+        num_body_mutexes: u32,
+        max_body_pairs: u32,
+        max_contact_constraints: u32,
+        gravity: Vec3,
     };
+
+    const Self = @This();
 
     ptr: ?*c.World,
 
