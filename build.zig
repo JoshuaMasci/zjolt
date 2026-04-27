@@ -218,7 +218,7 @@ pub fn build(b: *std.Build) void {
         }, .flags = c_flags });
     }
 
-    const example_module = b.addModule("root", .{
+    const example_module = b.addModule("example_root", .{
         .root_source_file = b.path("src/example.zig"),
         .target = target,
         .optimize = optimize,
