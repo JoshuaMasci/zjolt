@@ -10,17 +10,21 @@ const c = @cImport({
     @cInclude("zjolt.h");
 });
 
-pub fn init(allocator: std.mem.Allocator, temp_allocation_size: u32, threads: u16) void {
+pub fn init(allocator: std.mem.Allocator, temp_allocation_size: u32, threads: ?u16) void {
     std.debug.assert(mem_allocator == null);
 
     mem_allocator = allocator;
-    c.init(&c.AllocationFunctions{
-        .alloc = alloc,
-        .free = free,
-        .aligned_alloc = alignedAlloc,
-        .aligned_free = free,
-        .realloc = reallocate,
-    }, temp_allocation_size, threads);
+    c.init(
+        &c.AllocationFunctions{
+            .alloc = alloc,
+            .free = free,
+            .aligned_alloc = alignedAlloc,
+            .aligned_free = free,
+            .realloc = reallocate,
+        },
+        temp_allocation_size,
+        threads orelse 0,
+    );
 }
 pub fn deinit() void {
     c.deinit();
