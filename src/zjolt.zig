@@ -155,7 +155,7 @@ pub const BodySettings = struct {
 
     fn toC(settings: *const @This()) c.BodySettings {
         return .{
-            .shape = settings.shape,
+            .shape = settings.shape.ptr,
             .position = settings.position,
             .rotation = settings.rotation,
             .linear_velocity = settings.linear_velocity,
