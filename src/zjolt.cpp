@@ -286,7 +286,7 @@ void worldDestroy(World *world) {
 WorldUpdateError worldUpdate(World *world, float delta_time,
                              int collision_steps) {
   JPH::JobSystem *job_system = mt_job_system;
-  if (job_system != nullptr) {
+  if (job_system == nullptr) {
     job_system = st_job_system;
   }
 
