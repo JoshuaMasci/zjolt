@@ -93,7 +93,6 @@ pub const Shape = struct {
             positions.len,
             @ptrCast(@alignCast(indices.ptr)),
             indices.len,
-            null,
             user_data,
         ) };
     }
