@@ -225,7 +225,7 @@ ShapeID shapeCreateCompound(const SubShapeSettings *sub_shapes,
 
   for (size_t i = 0; i < sub_shape_count; i++) {
     auto &sub_shape = sub_shapes[i];
-    settings.AddShape(loadRVec3(sub_shape.position),
+    settings.AddShape(loadVec3(sub_shape.position),
                       loadQuat(sub_shape.rotation),
                       shape_pool->get(sub_shape.shape), sub_shape.user_data);
   }
@@ -450,7 +450,7 @@ ReturnVec3 worldGetBodyLinearVelocity(const World *world, BodyID body_id) {
 void worldSetBodyLinearVelocity(World *world, BodyID body_id,
                                 const Vec3 velocity) {
   world->physics_system->GetBodyInterface().SetLinearVelocity(
-      JPH::BodyID(body_id), loadRVec3(velocity));
+      JPH::BodyID(body_id), loadVec3(velocity));
 }
 
 ReturnVec3 worldGetBodyAngularVelocity(const World *world, BodyID body_id) {

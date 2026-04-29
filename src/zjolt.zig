@@ -4,7 +4,7 @@ const options = @import("options");
 
 const c = @cImport({
     if (options.use_double_precision) {
-        @cDefine("JPH_DOUBLE_PRECISION", 1);
+        @cDefine("JPH_DOUBLE_PRECISION", "1");
     }
 
     @cInclude("zjolt.h");
