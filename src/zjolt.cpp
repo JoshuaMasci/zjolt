@@ -1,5 +1,6 @@
 #include "zjolt.h"
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -29,6 +30,7 @@
 
 #include "collision_collector.hpp"
 #include "layer_filters.hpp"
+#include "shape_pool.hpp"
 #include "zjolt_math.hpp"
 
 // Override new and free
@@ -41,9 +43,8 @@ void *operator new(size_t size) {
 void operator delete(void *ptr) noexcept { JPH::Free(ptr); }
 
 // Types
-struct Shape {
+struct ShapeRef {
   JPH::Ref<JPH::Shape> ref;
-  UserData user_data;
 };
 
 struct World {
@@ -54,6 +55,7 @@ struct World {
 };
 
 // Global Variables
+ShapePool *shape_pool;
 
 // TODO: Custom temp allocator?
 JPH::TempAllocatorImplWithMallocFallback *temp_allocator;
@@ -78,15 +80,17 @@ void init(const AllocationFunctions *functions, uint32_t temp_allocation_size,
   JPH::Factory::sInstance = factory;
   JPH::RegisterTypes();
 
+  shape_pool = new ShapePool();
+
   temp_allocator =
       new JPH::TempAllocatorImplWithMallocFallback(temp_allocation_size);
 
-  if (threads == 0) {
+  if (threads != 0) {
     mt_job_system = new JPH::JobSystemThreadPool(1024, threads, threads);
     st_job_system = nullptr;
   } else {
     mt_job_system = nullptr;
-    st_job_system = new JPH::JobSystemSingleThreaded();
+    st_job_system = new JPH::JobSystemSingleThreaded(1024);
   }
 }
 
@@ -94,6 +98,7 @@ void deinit() {
   delete mt_job_system;
   delete st_job_system;
   delete temp_allocator;
+  delete shape_pool;
 
   JPH::UnregisterTypes();
   JPH::Factory::sInstance->~Factory();
@@ -107,67 +112,64 @@ void deinit() {
 }
 
 // Shape functions
-Shape *shapeCreateSphere(float radius, float density, UserData user_data) {
-  Shape *shape_ptr = new Shape;
-  shape_ptr->user_data = user_data;
-
+ShapeID shapeCreateSphere(float radius, float density, UserData user_data) {
   auto settings = JPH::SphereShapeSettings();
   settings.mRadius = radius;
   settings.mDensity = density;
-  settings.mUserData = (uint64_t)shape_ptr;
-  shape_ptr->ref = settings.Create().Get();
-
-  return shape_ptr;
+  settings.mUserData = user_data;
+  auto result = settings.Create();
+  if (result.IsEmpty()) {
+    return INVALID_SHAPE;
+  }
+  return shape_pool->insert(result.Get());
 }
 
-Shape *shapeCreateBox(const Vec3 half_extent, float density,
-                      UserData user_data) {
-  Shape *shape_ptr = new Shape;
-  shape_ptr->user_data = user_data;
+ShapeID shapeCreateBox(const Vec3 half_extent, float density,
+                       UserData user_data) {
 
   auto settings = JPH::BoxShapeSettings();
   settings.mHalfExtent = loadVec3(half_extent);
   settings.mDensity = density;
-  settings.mUserData = (uint64_t)shape_ptr;
-  shape_ptr->ref = settings.Create().Get();
-
-  return shape_ptr;
+  settings.mUserData = user_data;
+  auto result = settings.Create();
+  if (result.IsEmpty()) {
+    return INVALID_SHAPE;
+  }
+  return shape_pool->insert(result.Get());
 }
 
-Shape *shapeCreateCylinder(float half_height, float radius, float density,
-                           UserData user_data) {
-  Shape *shape_ptr = new Shape;
-  shape_ptr->user_data = user_data;
+ShapeID shapeCreateCylinder(float half_height, float radius, float density,
+                            UserData user_data) {
 
   auto settings = JPH::CylinderShapeSettings();
   settings.mHalfHeight = half_height;
   settings.mRadius = radius;
   settings.mDensity = density;
-  settings.mUserData = (uint64_t)shape_ptr;
-  shape_ptr->ref = settings.Create().Get();
-
-  return shape_ptr;
+  settings.mUserData = user_data;
+  auto result = settings.Create();
+  if (result.IsEmpty()) {
+    return INVALID_SHAPE;
+  }
+  return shape_pool->insert(result.Get());
 }
 
-Shape *shapeCreateCapsule(float half_height, float radius, float density,
-                          UserData user_data) {
-  Shape *shape_ptr = new Shape;
-  shape_ptr->user_data = user_data;
+ShapeID shapeCreateCapsule(float half_height, float radius, float density,
+                           UserData user_data) {
 
   auto settings = JPH::CapsuleShapeSettings();
   settings.mHalfHeightOfCylinder = half_height;
   settings.mRadius = radius;
   settings.mDensity = density;
-  settings.mUserData = (uint64_t)shape_ptr;
-  shape_ptr->ref = settings.Create().Get();
-
-  return shape_ptr;
+  settings.mUserData = user_data;
+  auto result = settings.Create();
+  if (result.IsEmpty()) {
+    return INVALID_SHAPE;
+  }
+  return shape_pool->insert(result.Get());
 }
 
-Shape *shapeCreateConvexHull(const Vec3 *positions, size_t position_count,
-                             float density, UserData user_data) {
-  Shape *shape_ptr = new Shape;
-  shape_ptr->user_data = user_data;
+ShapeID shapeCreateConvexHull(const Vec3 *positions, size_t position_count,
+                              float density, UserData user_data) {
 
   JPH::Array<JPH::Vec3> point_list(position_count);
   for (size_t i = 0; i < position_count; i++) {
@@ -176,17 +178,17 @@ Shape *shapeCreateConvexHull(const Vec3 *positions, size_t position_count,
   auto settings = JPH::ConvexHullShapeSettings();
   settings.mPoints = point_list;
   settings.mDensity = density;
-  settings.mUserData = (uint64_t)shape_ptr;
-  shape_ptr->ref = settings.Create().Get();
-
-  return shape_ptr;
+  settings.mUserData = user_data;
+  auto result = settings.Create();
+  if (result.IsEmpty()) {
+    return INVALID_SHAPE;
+  }
+  return shape_pool->insert(result.Get());
 }
 
-Shape *shapeCreateMesh(const Vec3 *positions, size_t position_count,
-                       const uint32_t *indices, size_t index_count,
-                       UserData user_data) {
-  Shape *shape_ptr = new Shape;
-  shape_ptr->user_data = user_data;
+ShapeID shapeCreateMesh(const Vec3 *positions, size_t position_count,
+                        const uint32_t *indices, size_t index_count,
+                        UserData user_data) {
 
   JPH::VertexList vertex_list;
   for (size_t i = 0; i < position_count; i++) {
@@ -207,46 +209,45 @@ Shape *shapeCreateMesh(const Vec3 *positions, size_t position_count,
     }
   }
   auto settings = JPH::MeshShapeSettings(vertex_list, triangle_list);
-  settings.mUserData = (uint64_t)shape_ptr;
-  shape_ptr->ref = settings.Create().Get();
-
-  return shape_ptr;
+  settings.mUserData = user_data;
+  auto result = settings.Create();
+  if (result.IsEmpty()) {
+    return INVALID_SHAPE;
+  }
+  return shape_pool->insert(result.Get());
 }
 
-Shape *shapeCreateCompound(const SubShapeSettings *sub_shapes,
-                           size_t sub_shape_count, UserData user_data) {
-  Shape *shape_ptr = new Shape;
+ShapeID shapeCreateCompound(const SubShapeSettings *sub_shapes,
+                            size_t sub_shape_count, UserData user_data) {
 
   auto settings = JPH::StaticCompoundShapeSettings();
-  settings.mUserData = (uint64_t)shape_ptr;
+  settings.mUserData = user_data;
 
   for (size_t i = 0; i < sub_shape_count; i++) {
     auto &sub_shape = sub_shapes[i];
     settings.AddShape(loadRVec3(sub_shape.position),
-                      loadQuat(sub_shape.rotation), sub_shape.shape->ref,
-                      sub_shape.userdata);
+                      loadQuat(sub_shape.rotation),
+                      shape_pool->get(sub_shape.shape), sub_shape.user_data);
   }
 
-  shape_ptr->ref = settings.Create().Get();
-
-  return nullptr;
-}
-
-void shapeDestroy(Shape *shape) {
-  if (shape != nullptr) {
-    delete shape;
+  auto result = settings.Create();
+  if (result.IsEmpty()) {
+    return INVALID_SHAPE;
   }
+  return shape_pool->insert(result.Get());
 }
 
-UserData shapeGetUserData(Shape *shape) {
-  if (shape != nullptr) {
-    return shape->user_data;
+void shapeDestroy(ShapeID shape) { shape_pool->remove(shape); }
+
+UserData shapeGetUserData(ShapeID shape) {
+  if (shape != INVALID_SHAPE) {
+    return shape_pool->get(shape)->GetUserData();
   }
   return 0;
 }
 
-MassProperties shapeGetMassProperties(Shape *shape) {
-  auto shape_properties = shape->ref->GetMassProperties();
+MassProperties shapeGetMassProperties(ShapeID shape) {
+  auto shape_properties = shape_pool->get(shape)->GetMassProperties();
   MassProperties mass_properties;
   mass_properties.mass = shape_properties.mMass;
   shape_properties.mInertia.StoreFloat4x4(
@@ -298,19 +299,20 @@ WorldUpdateError worldUpdate(World *world, float delta_time,
 JPH::BodyCreationSettings getJoltBodySettings(const BodySettings *settings) {
   auto result = JPH::BodyCreationSettings();
 
-  if (settings->shape != nullptr) {
-    result.SetShape(settings->shape->ref);
+  if (settings->shape != INVALID_SHAPE) {
+    result.SetShape(shape_pool->get(settings->shape));
   }
 
   result.mPosition = loadRVec3(settings->position);
   result.mRotation = loadQuat(settings->rotation);
+
   result.mLinearVelocity = loadVec3(settings->linear_velocity);
   result.mAngularVelocity = loadVec3(settings->angular_velocity);
 
   result.mUserData = settings->user_data;
   result.mObjectLayer = settings->object_layer;
   result.mMotionType = (JPH::EMotionType)settings->motion_type;
-  result.mIsSensor = false;
+  result.mIsSensor = settings->is_sensor;
   result.mAllowSleeping = settings->allow_sleep;
   result.mFriction = settings->friction;
   result.mGravityFactor = settings->gravity_factor;
@@ -324,16 +326,19 @@ JPH::BodyCreationSettings getJoltBodySettings(const BodySettings *settings) {
 
 // BodyInterface Functions
 BodyID worldCreateBody(World *world, const BodySettings *settings) {
-  world->physics_system->GetBodyInterface().CreateBody(
-      getJoltBodySettings(settings));
-  return INVALID_BODY_ID;
+  return world->physics_system->GetBodyInterface()
+      .CreateBody(getJoltBodySettings(settings))
+      ->GetID()
+      .GetIndexAndSequenceNumber();
 }
 
 BodyID worldCreateAndAddBody(World *world, const BodySettings *settings,
                              Activation activation) {
-  world->physics_system->GetBodyInterface().CreateAndAddBody(
-      getJoltBodySettings(settings), (JPH::EActivation)activation);
-  return INVALID_BODY_ID;
+  const auto jolt_settings = getJoltBodySettings(settings);
+
+  return world->physics_system->GetBodyInterface()
+      .CreateAndAddBody(jolt_settings, (JPH::EActivation)activation)
+      .GetIndexAndSequenceNumber();
 }
 
 void worldRemoveBody(World *world, BodyID body_id) {
@@ -376,7 +381,7 @@ ReturnRVec3 worldGetBodyPosition(const World *world, BodyID body_id) {
   return result;
 }
 
-void worldGetBodyPosition(World *world, BodyID body_id, const RVec3 position,
+void worldSetBodyPosition(World *world, BodyID body_id, const RVec3 position,
                           Activation activation) {
   world->physics_system->GetBodyInterface().SetPosition(
       JPH::BodyID(body_id), loadRVec3(position), (JPH::EActivation)activation);
@@ -584,10 +589,10 @@ void worldSetBodyUserData(World *world, BodyID body_id, UserData user_data) {
                                                         user_data);
 }
 
-void worldSetBodyShape(World *world, BodyID body_id, Shape *shape,
+void worldSetBodyShape(World *world, BodyID body_id, ShapeID shape,
                        bool update_mass_properties, Activation activation) {
   world->physics_system->GetBodyInterface().SetShape(
-      JPH::BodyID(body_id), shape->ref, update_mass_properties,
+      JPH::BodyID(body_id), shape_pool->get(shape), update_mass_properties,
       (JPH::EActivation)activation);
 }
 
@@ -615,7 +620,8 @@ void convertRayHit(RayCastHit *hit_result, JPH::RRayCast &ray,
 }
 
 bool worldCastRayCloset(World *world, ObjectLayer object_layer_pattern,
-                        RVec3 origin, Vec3 direction, RayCastHit *hit_result) {
+                        const RVec3 origin, const Vec3 direction,
+                        RayCastHit *hit_result) {
   JPH::RRayCast ray(loadRVec3(origin), loadVec3(direction));
   JPH::RayCastResult hit;
 
@@ -657,9 +663,9 @@ void worldCastRayAll(World *world, ObjectLayer object_layer_pattern,
                      const RVec3 origin, const Vec3 direction,
                      RayCastCallback callback, void *callback_data) {}
 
-void worldCastShape(World *world, ObjectLayer object_layer_pattern, Shape shape,
-                    const Transform *c_transform, ShapeCastCallback callback,
-                    void *callback_data) {
+void worldCastShape(World *world, ObjectLayer object_layer_pattern,
+                    ShapeRef shape, const Transform *c_transform,
+                    ShapeCastCallback callback, void *callback_data) {
   auto position = loadRVec3(c_transform->position);
   auto center_of_mass_transform = JPH::RMat44::sRotationTranslation(
       loadQuat(c_transform->rotation), position);

@@ -30,6 +30,8 @@ typedef struct AllocationFunctions {
   ReallocateFunction realloc;
 } AllocationFunctions;
 
+// ─── Global Fn ───────────────────────────────────────────────────────────────
+
 void init(const AllocationFunctions *functions, uint32_t temp_allocation_size,
           uint16_t threads);
 void deinit(void);
@@ -74,8 +76,8 @@ typedef uint16_t ObjectLayer;
 
 #define INVALID_BODY_ID ((BodyID)0xFFFFFFFF)
 #define INVALID_SOFT_BODY_ID ((SoftBodyID)0xFFFFFFFF)
-#define INVALID_shape ((ShapeID)0xFFFFFFFF)
-#define INVALID_SUB_shape ((SubShapeID)0xFFFFFFFF)
+#define INVALID_SHAPE ((ShapeID)0xFFFFFFFF)
+#define INVALID_SUB_SHAPE ((SubShapeID)0xFFFFFFFF)
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
@@ -104,7 +106,6 @@ typedef enum WorldUpdateError {
 // ─── Structs ─────────────────────────────────────────────────────────────────
 
 typedef struct World World;
-typedef struct Shape Shape;
 
 typedef struct WorldSettings {
   uint32_t max_bodies;
@@ -120,7 +121,7 @@ typedef struct MassProperties {
 } MassProperties;
 
 typedef struct BodySettings {
-  Shape *shape;
+  ShapeID shape;
   RVec3 position;
   Quat rotation;
   Vec3 linear_velocity;
@@ -141,10 +142,10 @@ typedef struct BodySettings {
 } BodySettings;
 
 typedef struct SubShapeSettings {
-  Shape *shape;
+  ShapeID shape;
   Vec3 position;
   Quat rotation;
-  UserData userdata;
+  UserData user_data;
 } SubShapeSettings;
 
 typedef struct RayCastHit {
@@ -167,31 +168,30 @@ typedef void (*ShapeCastCallback)(void *user_data, ShapeCastHit hit);
 
 // ─── Shape functions ─────────────────────────────────────────────────────────
 
-Shape *shapeCreateSphere(float radius, float density, UserData user_data);
+ShapeID shapeCreateSphere(float radius, float density, UserData user_data);
 
-Shape *shapeCreateBox(const Vec3 half_extent, float density,
-                      UserData user_data);
-
-Shape *shapeCreateCylinder(float half_height, float radius, float density,
-                           UserData user_data);
-
-Shape *shapeCreateCapsule(float half_height, float radius, float density,
-                          UserData user_data);
-
-Shape *shapeCreateConvexHull(const Vec3 *positions, size_t position_count,
-                             float density, UserData user_data);
-
-Shape *shapeCreateMesh(const Vec3 *positions, size_t position_count,
-                       const uint32_t *indices, size_t index_count,
+ShapeID shapeCreateBox(const Vec3 half_extent, float density,
                        UserData user_data);
 
-Shape *shapeCreateCompound(const SubShapeSettings *sub_shapes,
-                           size_t sub_shape_count, UserData user_data);
+ShapeID shapeCreateCylinder(float half_height, float radius, float density,
+                            UserData user_data);
 
-void shapeDestroy(Shape *shape);
-UserData shapeGetUserData(Shape *shape);
+ShapeID shapeCreateCapsule(float half_height, float radius, float density,
+                           UserData user_data);
 
-MassProperties shapeGetMassProperties(Shape *shape);
+ShapeID shapeCreateConvexHull(const Vec3 *positions, size_t position_count,
+                              float density, UserData user_data);
+
+ShapeID shapeCreateMesh(const Vec3 *positions, size_t position_count,
+                        const uint32_t *indices, size_t index_count,
+                        UserData user_data);
+
+ShapeID shapeCreateCompound(const SubShapeSettings *sub_shapes,
+                            size_t sub_shape_count, UserData user_data);
+
+void shapeDestroy(ShapeID shape);
+UserData shapeGetUserData(ShapeID shape);
+MassProperties shapeGetMassProperties(ShapeID shape);
 
 // ─── World functions
 // ──────────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ void worldSetBodyMotionQuality(World *world, BodyID body_id,
 UserData worldGetBodyUserData(const World *world, BodyID body_id);
 void worldSetBodyUserData(World *world, BodyID body_id, UserData user_data);
 
-void worldSetBodyShape(World *world, BodyID body_id, Shape *shape,
+void worldSetBodyShape(World *world, BodyID body_id, ShapeID shape,
                        bool update_mass_properties, Activation activation);
 
 bool worldCastRayCloset(World *world, ObjectLayer object_layer_pattern,
@@ -291,9 +291,9 @@ bool worldCastRayClosetIgnoreBody(World *world,
 void worldCastRayAll(World *world, ObjectLayer object_layer_pattern,
                      const RVec3 origin, const Vec3 direction,
                      RayCastCallback callback, void *callback_data);
-void worldCastShape(World *world, ObjectLayer object_layer_pattern, Shape shape,
-                    const Transform *c_transform, ShapeCastCallback callback,
-                    void *callback_data);
+void worldCastShape(World *world, ObjectLayer object_layer_pattern,
+                    ShapeID shape, const Transform *c_transform,
+                    ShapeCastCallback callback, void *callback_data);
 
 #ifdef __cplusplus
 }

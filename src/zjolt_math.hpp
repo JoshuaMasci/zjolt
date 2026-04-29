@@ -13,7 +13,7 @@ inline void storeFloat3(const JPH::Float3 &inFloat3, float (&outFloat3)[3]) {
 }
 
 inline JPH::Vec3 loadVec3(const float in[3]) {
-  return JPH::Vec3(*reinterpret_cast<const JPH::Float3 *>(in));
+  return JPH::Vec3(in[0], in[1], in[2]);
 }
 
 inline void storeVec3(const JPH::Vec3 &inVec, float (&outVec)[3]) {
@@ -23,7 +23,7 @@ inline void storeVec3(const JPH::Vec3 &inVec, float (&outVec)[3]) {
 }
 
 inline JPH::RVec3 loadRVec3(const JPH::Real in[3]) {
-  return JPH::RVec3(*reinterpret_cast<const JPH::Real3 *>(in));
+  return JPH::RVec3(in[0], in[1], in[2]);
 }
 
 inline void storeRVec3(const JPH::RVec3 &inVec, JPH::Real (&outVec)[3]) {
@@ -33,7 +33,7 @@ inline void storeRVec3(const JPH::RVec3 &inVec, JPH::Real (&outVec)[3]) {
 }
 
 inline JPH::Vec4 loadVec4(const float in[4]) {
-  return JPH::Vec4::sLoadFloat4(reinterpret_cast<const JPH::Float4 *>(in));
+  return JPH::Vec4(in[0], in[1], in[2], in[3]);
 }
 
 inline void storeVec4(const JPH::Vec4 &inVec, float (&outVec)[4]) {
@@ -44,7 +44,7 @@ inline void storeVec4(const JPH::Vec4 &inVec, float (&outVec)[4]) {
 }
 
 inline JPH::Quat loadQuat(const float in[4]) {
-  return static_cast<JPH::Quat>(loadVec4(in));
+  return JPH::Quat(loadVec4(in).Normalized());
 }
 
 inline void storeQuat(const JPH::Quat &inQuat, float (&outQuat)[4]) {

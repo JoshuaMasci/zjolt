@@ -54,32 +54,33 @@ pub const SubShapeSettings = struct {
     shape: Shape,
     position: Vec3,
     rotation: Quat,
+    user_data: UserData,
 };
 
 //Shape namespace for organization
 pub const Shape = struct {
     const Self = @This();
 
-    ptr: ?*c.Shape,
+    id: c.ShapeID,
 
     pub fn initSphere(radius: f32, density: f32, user_data: UserData) Shape {
-        return .{ .ptr = c.shapeCreateSphere(radius, density, user_data) };
+        return .{ .id = c.shapeCreateSphere(radius, density, user_data) };
     }
 
     pub fn initBox(half_extent: [3]f32, density: f32, user_data: UserData) Shape {
-        return .{ .ptr = c.shapeCreateBox(&half_extent, density, user_data) };
+        return .{ .id = c.shapeCreateBox(&half_extent, density, user_data) };
     }
 
     pub fn initCylinder(half_height: f32, radius: f32, density: f32, user_data: UserData) Shape {
-        return .{ .ptr = c.shapeCreateCylinder(half_height, radius, density, user_data) };
+        return .{ .id = c.shapeCreateCylinder(half_height, radius, density, user_data) };
     }
 
     pub fn initCapsule(half_height: f32, radius: f32, density: f32, user_data: UserData) Shape {
-        return .{ .ptr = c.shapeCreateCapsule(half_height, radius, density, user_data) };
+        return .{ .id = c.shapeCreateCapsule(half_height, radius, density, user_data) };
     }
 
     pub fn initConvexHull(positions: [][3]f32, density: f32, user_data: UserData) Shape {
-        return .{ .ptr = c.shapeCreateConvexHull(
+        return .{ .id = c.shapeCreateConvexHull(
             @ptrCast(@alignCast(positions.ptr)),
             positions.len,
             density,
@@ -88,7 +89,7 @@ pub const Shape = struct {
     }
 
     pub fn initMesh(positions: [][3]f32, indices: []u32, user_data: UserData) Shape {
-        return .{ .ptr = c.shapeCreateMesh(
+        return .{ .id = c.shapeCreateMesh(
             @ptrCast(@alignCast(positions.ptr)),
             positions.len,
             @ptrCast(@alignCast(indices.ptr)),
@@ -98,20 +99,30 @@ pub const Shape = struct {
     }
 
     pub fn initCompound(sub_shapes: []const SubShapeSettings, user_data: UserData) Shape {
-        comptime std.debug.assert(@sizeOf(SubShapeSettings) == @sizeOf(c.SubShapeSettings));
-        return .{ .ptr = c.shapeCreateCompound(@ptrCast(@alignCast(sub_shapes.ptr)), sub_shapes.len, user_data) };
+        const sub_shapes_c = mem_allocator.?.alloc(c.SubShapeSettings, sub_shapes.len) catch @panic("Failed to allocate memory");
+        defer mem_allocator.?.free(sub_shapes_c);
+
+        for (sub_shapes_c, sub_shapes) |*sub_c, sub| {
+            sub_c.* = .{
+                .shape = sub.shape.id,
+                .position = sub.position,
+                .rotation = sub.rotation,
+                .user_data = sub.user_data,
+            };
+        }
+        return .{ .id = c.shapeCreateCompound(sub_shapes_c.ptr, sub_shapes_c.len, user_data) };
     }
 
     pub fn deinit(self: Self) void {
-        c.shapeDestroy(self.ptr);
+        c.shapeDestroy(self.id);
     }
 
     pub fn getUserData(self: Self) UserData {
-        return c.shapeGetUserData(self.ptr);
+        return c.shapeGetUserData(self.id);
     }
 
     pub fn getMassProperties(self: Self) MassProperties {
-        return c.shapeGetMassProperties(self.ptr);
+        return c.shapeGetMassProperties(self.id);
     }
 };
 
@@ -147,15 +158,15 @@ pub const BodySettings = struct {
     allow_sleep: bool = true,
     friction: f32 = 0.2,
     restitution: f32 = 0.0,
-    linear_damping: f32 = 0.05,
-    angular_damping: f32 = 0.05,
+    linear_damping: f32 = 0.0,
+    angular_damping: f32 = 0.0,
     gravity_factor: f32 = 1.0,
     max_linear_velocity: f32 = 500.0,
-    max_angular_velocity: f32 = 0.25 * std.math.pi * 60.0,
+    max_angular_velocity: f32 = std.math.pi * 2.0,
 
     fn toC(settings: *const @This()) c.BodySettings {
         return .{
-            .shape = settings.shape.ptr,
+            .shape = settings.shape.id,
             .position = settings.position,
             .rotation = settings.rotation,
             .linear_velocity = settings.linear_velocity,
@@ -276,16 +287,16 @@ pub const World = struct {
         return c.worldGetBodyPosition(self.ptr, @intFromEnum(body_id)).data;
     }
 
+    pub fn setBodyPosition(self: *Self, body_id: BodyID, position: RVec3, activation: Activation) void {
+        c.worldSetBodyPosition(self.ptr, @intFromEnum(body_id), &position, @intFromEnum(activation));
+    }
+
     pub fn getBodyCenterOfMassPosition(self: *const Self, body_id: BodyID) RVec3 {
         return c.worldGetBodyCenterOfMassPosition(self.ptr, @intFromEnum(body_id)).data;
     }
 
     pub fn getBodyRotation(self: *const Self, body_id: BodyID) Quat {
         return c.worldGetBodyRotation(self.ptr, @intFromEnum(body_id)).data;
-    }
-
-    pub fn setBodyPosition(self: *Self, body_id: BodyID, position: RVec3, activation: Activation) void {
-        c.worldSetBodyPosition(self.ptr, @intFromEnum(body_id), position, @intFromEnum(activation));
     }
 
     pub fn setBodyRotation(self: *Self, body_id: BodyID, rotation: Quat, activation: Activation) void {
@@ -309,7 +320,7 @@ pub const World = struct {
     }
 
     pub fn setBodyLinearVelocity(self: *Self, body_id: BodyID, velocity: Vec3) void {
-        c.worldSetBodyLinearVelocity(self.ptr, @intFromEnum(body_id), velocity);
+        c.worldSetBodyLinearVelocity(self.ptr, @intFromEnum(body_id), &velocity);
     }
 
     pub fn getBodyAngularVelocity(self: *const Self, body_id: BodyID) Vec3 {
@@ -317,11 +328,11 @@ pub const World = struct {
     }
 
     pub fn setBodyAngularVelocity(self: *Self, body_id: BodyID, velocity: Vec3) void {
-        c.worldSetBodyAngularVelocity(self.ptr, @intFromEnum(body_id), velocity);
+        c.worldSetBodyAngularVelocity(self.ptr, @intFromEnum(body_id), &velocity);
     }
 
     pub fn getBodyPointVelocity(self: *const Self, body_id: BodyID, point: RVec3) Vec3 {
-        return c.worldGetBodyPointVelocity(self.ptr, @intFromEnum(body_id), point).data;
+        return c.worldGetBodyPointVelocity(self.ptr, @intFromEnum(body_id), &point).data;
     }
 
     pub fn getBodyLinearAndAngularVelocity(self: *Self, body_id: BodyID) Velocity {
@@ -333,7 +344,7 @@ pub const World = struct {
     }
 
     pub fn addBodyForce(self: *Self, body_id: BodyID, force: Vec3) void {
-        c.worldAddBodyForce(self.ptr, @intFromEnum(body_id), force);
+        c.worldAddBodyForce(self.ptr, @intFromEnum(body_id), &force);
     }
 
     pub fn addBodyForceAtPosition(self: *Self, body_id: BodyID, force: Vec3, position: RVec3) void {
@@ -345,7 +356,7 @@ pub const World = struct {
     }
 
     pub fn addBodyImpulse(self: *Self, body_id: BodyID, impulse: Vec3) void {
-        c.worldAddBodyImpulse(self.ptr, @intFromEnum(body_id), impulse);
+        c.worldAddBodyImpulse(self.ptr, @intFromEnum(body_id), &impulse);
     }
 
     pub fn addBodyImpulseAtPosition(self: *Self, body_id: BodyID, impulse: Vec3, position: RVec3) void {
@@ -353,7 +364,7 @@ pub const World = struct {
     }
 
     pub fn addBodyAngularImpulse(self: *Self, body_id: BodyID, impulse: Vec3) void {
-        c.worldAddBodyAngularImpulse(self.ptr, @intFromEnum(body_id), impulse);
+        c.worldAddBodyAngularImpulse(self.ptr, @intFromEnum(body_id), &impulse);
     }
 
     pub fn getBodyFriction(self: *const Self, body_id: BodyID) f32 {
@@ -405,7 +416,7 @@ pub const World = struct {
     }
 
     pub fn setBodyShape(self: *Self, body_id: BodyID, shape: Shape, update_mass_properties: bool, activation: Activation) void {
-        c.worldSetBodyShape(self.ptr, @intFromEnum(body_id), shape.ptr, update_mass_properties, @intFromEnum(activation));
+        c.worldSetBodyShape(self.ptr, @intFromEnum(body_id), shape.id, update_mass_properties, @intFromEnum(activation));
     }
 
     pub fn castRayClosest(self: Self, object_layer_pattern: ObjectLayer, origin: RVec3, direction: Vec3) ?RayCastHit {
@@ -418,7 +429,7 @@ pub const World = struct {
 
     pub fn castRayClosestIgnoreBody(self: Self, object_layer_pattern: ObjectLayer, ignore_body: BodyID, origin: RVec3, direction: Vec3) ?c.RayCastHit {
         var hit: c.RayCastHit = .{};
-        return if (c.worldCastRayClosetIgnoreBody(self.ptr, object_layer_pattern, ignore_body, @ptrCast(&origin[0]), @ptrCast(&direction[0]), &hit))
+        return if (c.worldCastRayClosetIgnoreBody(self.ptr, object_layer_pattern, @intFromEnum(ignore_body), @ptrCast(&origin[0]), @ptrCast(&direction[0]), &hit))
             hit
         else
             null;
@@ -477,7 +488,7 @@ fn reallocate(maybe_ptr: ?*anyopaque, old_size: usize, new_size: usize) callconv
                 16 => allocator.resize(@as([*]align(16) u8, @alignCast(allocation_ptr))[0..allocation_size], new_allocation_size),
                 32 => allocator.resize(@as([*]align(32) u8, @alignCast(allocation_ptr))[0..allocation_size], new_allocation_size),
                 64 => allocator.resize(@as([*]align(64) u8, @alignCast(allocation_ptr))[0..allocation_size], new_allocation_size),
-                else => |x| std.debug.panic("Unsupported memory aligment: {}", .{x}),
+                else => |x| std.debug.panic("Unsupported memory alignment: {}", .{x}),
             };
             if (resized) {
                 metadata_ptr.size = new_size;
@@ -515,8 +526,22 @@ fn free(maybe_ptr: ?*anyopaque) callconv(.c) void {
                 16 => allocator.free(@as([*]align(16) u8, @alignCast(allocation_ptr))[0..allocation_size]),
                 32 => allocator.free(@as([*]align(32) u8, @alignCast(allocation_ptr))[0..allocation_size]),
                 64 => allocator.free(@as([*]align(64) u8, @alignCast(allocation_ptr))[0..allocation_size]),
-                else => |x| std.debug.panic("Unsupported memory aligment: {}", .{x}),
+                else => |x| std.debug.panic("Unsupported memory alignment: {}", .{x}),
             }
         }
     }
+}
+
+// ─── Tests ─────────────────────────────────────────────────────────────────
+const @"1MB" = 1024 * 1024;
+
+test "Global Init No Thread Pool" {
+    init(std.testing.allocator, @"1MB", null);
+    defer deinit();
+}
+
+test "Global Init Thread Pool" {
+    const thread_count: u16 = @intCast(try std.Thread.getCpuCount());
+    init(std.testing.allocator, @"1MB", thread_count);
+    defer deinit();
 }

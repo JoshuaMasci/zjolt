@@ -43,6 +43,7 @@ pub fn build(b: *std.Build) void {
     const zig_module = b.addModule("zjolt", .{
         .root_source_file = b.path("src/zjolt.zig"),
         .imports = &.{.{ .name = "options", .module = options_module }},
+        .target = target,
     });
     zig_module.addIncludePath(b.path("src/"));
 
@@ -232,4 +233,11 @@ pub fn build(b: *std.Build) void {
     const run_cmd = b.addRunArtifact(example_exe);
     const run_step = b.step("example", "Run the example");
     run_step.dependOn(&run_cmd.step);
+
+    const zig_tests = b.addTest(.{
+        .root_module = zig_module,
+    });
+    const run_zig_tests = b.addRunArtifact(zig_tests);
+    const test_step = b.step("test", "Run tests");
+    test_step.dependOn(&run_zig_tests.step);
 }
