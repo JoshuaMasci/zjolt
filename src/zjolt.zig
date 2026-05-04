@@ -98,6 +98,17 @@ pub const Shape = struct {
         ) };
     }
 
+    pub fn initMeshStride(positions: *anyopaque, position_count: usize, position_stride: usize, indices: []u32, user_data: UserData) Shape {
+        return .{ .id = c.shapeCreateMeshStride(
+            positions,
+            position_count,
+            position_stride,
+            @ptrCast(@alignCast(indices.ptr)),
+            indices.len,
+            user_data,
+        ) };
+    }
+
     pub fn initCompound(sub_shapes: []const SubShapeSettings, user_data: UserData) Shape {
         const sub_shapes_c = mem_allocator.?.alloc(c.SubShapeSettings, sub_shapes.len) catch @panic("Failed to allocate memory");
         defer mem_allocator.?.free(sub_shapes_c);
@@ -144,6 +155,20 @@ pub const MotionQuality = enum(u32) {
     linear_cast = 1,
 };
 
+pub const AllowedDOFs = packed struct(u8) {
+    translation_x: bool = false,
+    translation_y: bool = false,
+    translation_z: bool = false,
+    rotation_x: bool = false,
+    rotation_y: bool = false,
+    rotation_z: bool = false,
+
+    _padding: u2 = 0,
+
+    pub const all = AllowedDOFs{ .translation_x = true, .translation_y = true, .translation_z = true, .rotation_x = true, .rotation_y = true, .rotation_z = true };
+    pub const plane_2d = AllowedDOFs{ .translation_x = true, .translation_y = true, .rotation_z = true };
+};
+
 pub const BodySettings = struct {
     shape: Shape,
     position: RVec3 = .{ 0, 0, 0 },
@@ -153,6 +178,7 @@ pub const BodySettings = struct {
     user_data: UserData = 0,
     object_layer: ObjectLayer = 0,
     motion_type: MotionType = .static,
+    allowed_dofs: AllowedDOFs = .all,
     motion_quality: MotionQuality = .discrete,
     is_sensor: bool = false,
     allow_sleep: bool = true,
@@ -174,6 +200,7 @@ pub const BodySettings = struct {
             .user_data = settings.user_data,
             .object_layer = settings.object_layer,
             .motion_type = @intFromEnum(settings.motion_type),
+            .allowed_dofs = @bitCast(settings.allowed_dofs),
             .motion_quality = @intFromEnum(settings.motion_quality),
             .is_sensor = settings.is_sensor,
             .allow_sleep = settings.allow_sleep,

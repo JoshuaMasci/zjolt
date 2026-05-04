@@ -17,6 +17,7 @@
 #include <Jolt/Physics/Collision/CollideShape.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 
+#include <Jolt/Physics/Body/AllowedDOFs.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 
 #include "Jolt/Core/JobSystemSingleThreaded.h"
@@ -217,6 +218,38 @@ ShapeID shapeCreateMesh(const Vec3 *positions, size_t position_count,
   return shape_pool->insert(result.Get());
 }
 
+ShapeID shapeCreateMeshStride(const void *positions, size_t position_count,
+                              size_t position_stride, const uint32_t *indices,
+                              size_t index_count, UserData user_data) {
+  JPH::VertexList vertex_list;
+  for (size_t i = 0; i < position_count; i++) {
+    size_t byte_offset = position_stride * i;
+    Vec3 *pos = (Vec3 *)((uint8_t *)positions + byte_offset);
+    vertex_list.push_back(loadFloat3(*pos));
+  }
+
+  JPH::IndexedTriangleList triangle_list;
+  if (index_count == 0) {
+    for (int i = 0; i < position_count; i += 3) {
+      triangle_list.push_back(JPH::IndexedTriangle(i + 0, i + 1, i + 2, 0));
+    }
+  } else {
+    const size_t triangle_count = index_count / 3;
+    for (int i = 0; i < triangle_count; i++) {
+      const size_t offset = i * 3;
+      triangle_list.push_back(JPH::IndexedTriangle(
+          indices[offset + 0], indices[offset + 1], indices[offset + 2], 0));
+    }
+  }
+  auto settings = JPH::MeshShapeSettings(vertex_list, triangle_list);
+  settings.mUserData = user_data;
+  auto result = settings.Create();
+  if (result.IsEmpty()) {
+    return INVALID_SHAPE;
+  }
+  return shape_pool->insert(result.Get());
+}
+
 ShapeID shapeCreateCompound(const SubShapeSettings *sub_shapes,
                             size_t sub_shape_count, UserData user_data) {
 
@@ -312,6 +345,7 @@ JPH::BodyCreationSettings getJoltBodySettings(const BodySettings *settings) {
   result.mUserData = settings->user_data;
   result.mObjectLayer = settings->object_layer;
   result.mMotionType = (JPH::EMotionType)settings->motion_type;
+  result.mAllowedDOFs = (JPH::EAllowedDOFs)settings->allowed_dofs;
   result.mIsSensor = settings->is_sensor;
   result.mAllowSleeping = settings->allow_sleep;
   result.mFriction = settings->friction;

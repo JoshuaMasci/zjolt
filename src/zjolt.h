@@ -129,6 +129,7 @@ typedef struct BodySettings {
   UserData user_data;
   ObjectLayer object_layer;
   MotionType motion_type;
+  uint8_t allowed_dofs;
   MotionQuality motion_quality;
   bool is_sensor; // trigger volumes — no contact response
   bool allow_sleep;
@@ -185,6 +186,10 @@ ShapeID shapeCreateConvexHull(const Vec3 *positions, size_t position_count,
 ShapeID shapeCreateMesh(const Vec3 *positions, size_t position_count,
                         const uint32_t *indices, size_t index_count,
                         UserData user_data);
+
+ShapeID shapeCreateMeshStride(const void *positions, size_t position_count,
+                              size_t position_stride, const uint32_t *indices,
+                              size_t index_count, UserData user_data);
 
 ShapeID shapeCreateCompound(const SubShapeSettings *sub_shapes,
                             size_t sub_shape_count, UserData user_data);
